@@ -1,41 +1,72 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <windows.h>
-#include <conio.h>
-#include <time.h>
-#include <ctype.h>
-#include <math.h>
+/**
+ * Car Park System
+ * 
+ * A console-based application for managing a car parking facility.
+ * This system allows tracking of vehicles, parking spots, and fees.
+ * 
+ * Features:
+ * - Parking spot management (100 spots)
+ * - Vehicle entry and exit tracking
+ * - Fee calculation based on parking duration
+ * - Search functionality by owner name or license plate
+ * - Data persistence using text files
+ */
 
+#include <stdio.h>    // Standard input/output
+#include <stdlib.h>   // Standard library functions
+#include <string.h>   // String manipulation functions
+#include <windows.h>  // Windows API functions
+#include <conio.h>    // Console input/output
+#include <time.h>     // Time-related functions
+#include <ctype.h>    // Character type functions
+#include <math.h>     // Mathematical functions
+
+// Configure application to run as a Windows application
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 
-#define PARKING_SPOTS 100
-#define FILENAME_SPOTS "parking_spots.txt"
-#define FILENAME_HISTORY "parking_history.txt"
-#define RATE_PER_SECOND 0.03
+// Constants for system configuration
+#define PARKING_SPOTS 100          // Total number of parking spots available
+#define FILENAME_SPOTS "parking_spots.txt"    // File to store parking spot data
+#define FILENAME_HISTORY "parking_history.txt"  // File to store parking history
+#define RATE_PER_SECOND 0.03       // Parking fee rate per second (Rs.)
 
+/**
+ * Structure to store complete information about a car parking record
+ * Used for maintaining the parking history and generating receipts
+ */
 typedef struct
 {
-    char name[50];
-    char plate[20];
-    char phone[15];
-    char address[100];
-    int spot;
-    time_t entry_time;
-    time_t exit_time;
-    double fee;
+    char name[50];      // Owner's name
+    char plate[20];     // License plate number
+    char phone[15];     // Contact phone number
+    char address[100];  // Owner's address
+    int spot;           // Assigned parking spot number
+    time_t entry_time;  // Time when car entered the parking
+    time_t exit_time;   // Time when car exited (0 if still parked)
+    double fee;         // Calculated parking fee
 } CarRecord;
 
+/**
+ * Structure to store information about individual parking spots
+ * Used for tracking current parking status
+ */
 typedef struct
 {
-    int spot;
-    char plate[20];
-    int occupied;
-    time_t entry_time;
+    int spot;           // Parking spot number (1-100)
+    char plate[20];     // License plate of parked car (or "EMPTY")
+    int occupied;       // Flag indicating if spot is occupied (1) or empty (0)
+    time_t entry_time;  // Time when current car entered this spot
 } ParkingSpot;
 
+// Global variable for cursor positioning
 COORD coord = {0, 0};
 
+/**
+ * Positions the cursor at specified coordinates in the console
+ * 
+ * @param x X-coordinate (column)
+ * @param y Y-coordinate (row)
+ */
 void gotoxy(int x, int y)
 {
     coord.X = x;
@@ -43,39 +74,64 @@ void gotoxy(int x, int y)
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
+/**
+ * Sets the text color for console output
+ * 
+ * @param color Color code (Windows console color attribute)
+ *              Common values: 10=green, 11=cyan, 12=red, 15=white
+ */
 void setColor(int color)
 {
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 
+/**
+ * Draws a rectangular border using ASCII extended characters
+ * 
+ * @param width Width of the border in characters
+ * @param height Height of the border in characters
+ * @param x X-coordinate of the top-left corner
+ * @param y Y-coordinate of the top-left corner
+ */
 void drawBorder(int width, int height, int x, int y)
 {
+    // Draw top border with corners
     gotoxy(x, y);
-    printf("%c", 201);
+    printf("%c", 201);  // Top-left corner
     for (int i = 0; i < width - 2; i++)
-        printf("%c", 205);
-    printf("%c", 187);
+        printf("%c", 205);  // Horizontal line
+    printf("%c", 187);  // Top-right corner
 
+    // Draw vertical borders
     for (int i = 1; i < height - 1; i++)
     {
         gotoxy(x, y + i);
-        printf("%c", 186);
+        printf("%c", 186);  // Left vertical line
         gotoxy(x + width - 1, y + i);
-        printf("%c", 186);
+        printf("%c", 186);  // Right vertical line
     }
 
+    // Draw bottom border with corners
     gotoxy(x, y + height - 1);
-    printf("%c", 200);
+    printf("%c", 200);  // Bottom-left corner
     for (int i = 0; i < width - 2; i++)
-        printf("%c", 205);
-    printf("%c", 188);
+        printf("%c", 205);  // Horizontal line
+    printf("%c", 188);  // Bottom-right corner
 }
 
+/**
+ * Initializes the parking spots data file
+ * 
+ * Creates a new parking spots file if it doesn't exist.
+ * Each line in the file represents one parking spot with format:
+ * [spot_number] [license_plate] [occupied_flag] [entry_time]
+ */
 void initializeParkingSpots()
 {
     FILE *file = fopen(FILENAME_SPOTS, "r");
     if (file == NULL)
     {
+        // File doesn't exist, create it with all spots empty
         file = fopen(FILENAME_SPOTS, "w");
         for (int i = 0; i < PARKING_SPOTS; i++)
         {
@@ -85,40 +141,55 @@ void initializeParkingSpots()
     }
     else
     {
+        // File exists, no need to initialize
         fclose(file);
     }
 }
 
+/**
+ * Displays the welcome screen with loading animation
+ * 
+ * Shows a welcome message and animated loading bar when the application starts
+ */
 void welcomeScreen()
 {
-    system("cls");
-    setColor(11);
-    drawBorder(60, 10, 10, 5);
+    system("cls");  // Clear the screen
+    setColor(11);   // Set text color to cyan
+    drawBorder(60, 10, 10, 5);  // Draw border for welcome message
 
+    // Display welcome messages
     gotoxy(25, 8);
     printf("WELCOME TO CAR PARK SYSTEM");
     gotoxy(22, 10);
     printf("Loading Parking Management System");
 
+    // Display animated loading bar
     gotoxy(15, 13);
     for (int i = 0; i < 50; i++)
     {
-        printf("%c", 177);
-        Sleep(50);
+        printf("%c", 177);  // Block character for loading bar
+        Sleep(50);          // Delay for animation effect
     }
-    Sleep(1000);
+    Sleep(1000);  // Pause before proceeding to main menu
 }
 
 
+/**
+ * Displays the exit screen with animation
+ * 
+ * Shows a goodbye message and animated "Exiting" text when the application closes
+ */
 void exitScreen()
 {
+    system("cls");  // Clear the screen
+    setColor(12);   // Set text color to red
+    drawBorder(60, 10, 10, 5);  // Draw border for exit message
 
-    system("cls");
-    setColor(12);
-    drawBorder(60, 10, 10, 5);
-
+    // Display credits
     gotoxy(30, 8);
     printf("Made by A Little Mouse");
+    
+    // Animated exit message
     gotoxy(35, 12);
     printf("Exiting.");
     Sleep(2000);
@@ -129,29 +200,43 @@ void exitScreen()
     printf("Exiting...");
     Sleep(2000);
 
-    system("cls");
+    system("cls");  // Clear screen before exit
 }
 
+/**
+ * Displays ASCII art of a car at specified coordinates
+ * 
+ * @param x X-coordinate for the top-left corner of the car art
+ * @param y Y-coordinate for the top-left corner of the car art
+ */
 void displayCarArt(int x, int y)
 {
     gotoxy(x, y++);
-    printf("   ______");
+    printf("   ______");        // Car roof
     gotoxy(x, y++);
-    printf("  /|_||_\\`.__");
+    printf("  /|_||_\\`.__");    // Car windows and top
     gotoxy(x, y++);
-    printf(" (   _    _ _\\");
+    printf(" (   _    _ _\\");   // Car body
     gotoxy(x, y++);
-    printf("=`-(_)--(_)-'");
+    printf("=`-(_)--(_)-'");    // Car wheels
 }
 
+/**
+ * Counts the number of currently parked cars
+ * 
+ * Reads the parking spots file and counts occupied spots
+ * 
+ * @return Number of currently parked cars
+ */
 int countParkedCars()
 {
     FILE *file = fopen(FILENAME_SPOTS, "r");
     if (file == NULL)
-        return 0;
+        return 0;  // Return 0 if file cannot be opened
     
     ParkingSpot spot;
     int count = 0;
+    // Read each spot record and count occupied spots
     while (fscanf(file, "%d %19s %d %ld", &spot.spot, spot.plate, &spot.occupied, &spot.entry_time) == 4)
     {
         if (spot.occupied)
@@ -161,13 +246,19 @@ int countParkedCars()
     return count;
 }
 
+/**
+ * Displays the main menu with all available options
+ * 
+ * Shows the main menu interface with car art and current parking status
+ */
 void mainMenu()
 {
-    system("cls");
-    setColor(10);
-    drawBorder(60, 20, 10, 3);
-    displayCarArt(20, 5);
-
+    system("cls");  // Clear the screen
+    setColor(10);   // Set text color to green
+    drawBorder(60, 20, 10, 3);  // Draw border for menu
+    displayCarArt(20, 5);  // Display car ASCII art
+    
+    // Display menu title and options
     gotoxy(30, 8);
     printf("MAIN MENU");
     gotoxy(25, 10);
@@ -181,20 +272,34 @@ void mainMenu()
     gotoxy(25, 14);
     printf("5. Exit System");
 
+    // Prompt for user input
     gotoxy(25, 16);
     printf("Enter your choice (1-5): ");
+    
+    // Display current parking status
     gotoxy(25, 20);
-    printf("Cars Parked: %d", countParkedCars()); // Display the car counter
+    printf("Cars Parked: %d", countParkedCars());
+    
+    // Position cursor at input position
     gotoxy(50,16);
 }
 
+/**
+ * Displays the current status of all parking spots
+ * 
+ * Shows a visual grid of all parking spots with their status (occupied or available)
+ * Occupied spots are shown in red with [X], available spots show their spot number in green
+ */
 void displayParkingStatus()
 {
-    system("cls");
-    setColor(15);
-    drawBorder(82, 27, 5, 2);
-
+    system("cls");  // Clear the screen
+    setColor(15);   // Set text color to white
+    drawBorder(82, 27, 5, 2);  // Draw border for parking display
+    
+    // Ensure parking spots file exists
     initializeParkingSpots();
+    
+    // Open parking spots file
     FILE *file = fopen(FILENAME_SPOTS, "r");
     if (file == NULL)
     {
@@ -202,10 +307,12 @@ void displayParkingStatus()
         return;
     }
 
+    // Display title
     gotoxy(40, 4);
     printf("PARKING STATUS");
     gotoxy(12, 5);
 
+    // Load all parking spots data into memory
     ParkingSpot spots[PARKING_SPOTS];
     for (int i = 0; i < PARKING_SPOTS; i++)
     {
@@ -214,38 +321,48 @@ void displayParkingStatus()
     }
     fclose(file);
 
+    // Display parking spots in a grid layout (10x10)
     for (int i = 0; i < PARKING_SPOTS; i++)
     {
-        int row = 8 + (i / 10) * 2;
-        int col = 10 + (i % 10) * 7;
+        // Calculate position in grid (10 columns)
+        int row = 8 + (i / 10) * 2;  // New row every 10 spots, with spacing
+        int col = 10 + (i % 10) * 7; // 7 characters width per spot
 
         gotoxy(col, row);
         if (spots[i].occupied)
         {
-            setColor(12);
+            setColor(12);  // Red for occupied spots
             printf("[ X ]");
         }
         else
         {
-            setColor(10);
+            setColor(10);  // Green for available spots
             printf("[%3d]", spots[i].spot);
         }
     }
 
-    setColor(15);
+    // Prompt to return to main menu
+    setColor(15);  // White text
     gotoxy(10, 27);
     printf("Press any key to return to main menu...");
-    getch();
+    getch();  // Wait for key press
 }
 
+/**
+ * Adds a new car to the parking system
+ * 
+ * Collects car and owner information, validates input data,
+ * assigns a parking spot, and updates both the parking spots
+ * and history files
+ */
 void addCar()
 {
-    system("cls");
-    drawBorder(60, 20, 10, 3);
-    displayCarArt(20, 5);
-
-    CarRecord newCar;
-    time_t now = time(NULL);
+    system("cls");  // Clear the screen
+    drawBorder(60, 20, 10, 3);  // Draw border for input form
+    displayCarArt(20, 5);  // Display car ASCII art
+    
+    CarRecord newCar;  // Structure to store new car information
+    time_t now = time(NULL);  // Current timestamp
     gotoxy(25, 8);
     printf("ADD NEW CAR ENTRY");
 
@@ -459,19 +576,25 @@ void addCar()
     getch();
 }
 
+/**
+ * Removes a car from the parking system
+ * 
+ * Gets the license plate of the car to remove, calculates parking fee,
+ * updates parking spots and history files, and displays a receipt
+ */
 void removeCar()
 {
+    system("cls");  // Clear the screen
+    setColor(15);   // Set text color to white
+    drawBorder(60, 20, 10, 3);  // Draw border for form
+    displayCarArt(20, 5);  // Display car ASCII art
 
-    system("cls");
-    setColor(15);
-    drawBorder(60, 20, 10, 3);
-    displayCarArt(20, 5);
-
+    // Check if there are any parked cars
     int parkedCars = countParkedCars();
     if (parkedCars == 0)
     {
         gotoxy(20, 10);
-        setColor(12);
+        setColor(12);  // Red text for error
         printf("No cars parked!");
         Sleep(1500);
         return;
@@ -609,12 +732,18 @@ void removeCar()
     getch();
 }
 
+/**
+ * Searches parking history by owner name
+ * 
+ * Finds all parking records for a specific owner and displays
+ * summary information including total entries and unique vehicles
+ */
 void searchByName()
 {
-    system("cls");
-    char name[50];
-    drawBorder(60, 25, 10, 3);
-    displayCarArt(20, 5);
+    system("cls");  // Clear the screen
+    char name[50];  // Buffer for owner name input
+    drawBorder(60, 25, 10, 3);  // Draw border for search form
+    displayCarArt(20, 5);  // Display car ASCII art
 
     gotoxy(25, 8);
     printf("SEARCH BY OWNER NAME");
@@ -704,12 +833,18 @@ void searchByName()
     getch();
 }
 
+/**
+ * Searches parking history by license plate
+ * 
+ * Finds all parking records for a specific vehicle and displays
+ * summary information including total entries and all registered owners
+ */
 void searchByPlate()
 {
-    system("cls");
-    char plate[20];
-    drawBorder(60, 25, 10, 3);
-    displayCarArt(20, 5);
+    system("cls");  // Clear the screen
+    char plate[20]; // Buffer for license plate input
+    drawBorder(60, 25, 10, 3);  // Draw border for search form
+    displayCarArt(20, 5);  // Display car ASCII art
 
     gotoxy(25, 8);
     printf("SEARCH BY LICENSE PLATE");
@@ -797,16 +932,22 @@ void searchByPlate()
     getch();
 }
 
+/**
+ * Displays the search menu with options to search by name or license plate
+ * 
+ * Provides a submenu for different search options and handles user input
+ */
 void searchMenu()
 {
     char choice;
     do
     {
-        system("cls");
-        setColor(11);
-        drawBorder(60, 20, 10, 3);
-        displayCarArt(20, 5);
+        system("cls");  // Clear the screen
+        setColor(11);   // Set text color to cyan
+        drawBorder(60, 20, 10, 3);  // Draw border for menu
+        displayCarArt(20, 5);  // Display car ASCII art
 
+        // Display search menu options
         gotoxy(30, 8);
         printf("SEARCH MENU");
         gotoxy(25, 10);
@@ -818,81 +959,97 @@ void searchMenu()
         gotoxy(25, 14);
         printf("Enter your choice (1-3): ");
 
-        choice = getche();
+        // Get user choice and process it
+        choice = getche();  // Get character without waiting for Enter
         system("cls");
 
+        // Handle user selection
         switch (choice)
         {
         case '1':
-            searchByName();
+            searchByName();  // Search records by owner name
             break;
         case '2':
-            searchByPlate();
+            searchByPlate(); // Search records by license plate
             break;
         case '3':
-            return;
+            return;  // Return to main menu
         default:
             gotoxy(25, 16);
             printf("Invalid choice!");
             Sleep(1000);
         }
-    } while (choice != '3');
+    } while (choice != '3');  // Continue until user chooses to return
 }
 
+/**
+ * Main function - Entry point of the application
+ * 
+ * Sets up the console environment, initializes the system,
+ * and handles the main program loop
+ * 
+ * @return 0 on successful execution
+ */
 int main()
 {
+    // Set up console for Windows GUI application
     AllocConsole();
-    freopen("CONIN$", "r", stdin);
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONOUT$", "w", stderr);
+    freopen("CONIN$", "r", stdin);     // Redirect standard input
+    freopen("CONOUT$", "w", stdout);   // Redirect standard output
+    freopen("CONOUT$", "w", stderr);   // Redirect standard error
 
     // Set console title
     SetConsoleTitleA("Car Park System");
     system("title Car Park System");
 
-    // Set console size
+    // Set console size and buffer
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    COORD size = {90, 30};
+    COORD size = {90, 30};  // Width and height of console buffer
     SetConsoleScreenBufferSize(hConsole, size);
 
-    SMALL_RECT rect = {0, 0, 89, 29};
+    // Set console window size
+    SMALL_RECT rect = {0, 0, 89, 29};  // Left, top, right, bottom coordinates
     SetConsoleWindowInfo(hConsole, TRUE, &rect);
 
-    // Initialize and run program
-    initializeParkingSpots();
-    welcomeScreen();
+    // Initialize system and display welcome screen
+    initializeParkingSpots();  // Create or verify parking spots file
+    welcomeScreen();           // Show welcome animation
 
+    // Main program loop
     int running = 1;
     while (running)
     {
-        mainMenu();
-        char choice = getche();
+        mainMenu();  // Display main menu options
+        char choice = getche();  // Get user selection without waiting for Enter
 
+        // Process user selection
         switch (choice)
         {
         case '1':
-            displayParkingStatus();
+            displayParkingStatus();  // Show parking spot grid
             break;
         case '2':
-            addCar();
+            addCar();  // Add a new car to parking
             break;
         case '3':
-            removeCar();
+            removeCar();  // Remove a car from parking
             break;
         case '4':
-            searchMenu();
+            searchMenu();  // Show search submenu
             break;
         case '5':
-            running = 0;
+            running = 0;  // Exit the program
             break;
         default:
+            // Handle invalid input
             gotoxy(25, 18);
-            setColor(12);
+            setColor(12);  // Red text for error
             printf("Invalid choice!");
             Sleep(1000);
         }
     }
 
+    // Show exit screen and terminate
     exitScreen();
     return 0;
 }

@@ -2,8 +2,6 @@
 
 A console-based parking management system for efficiently tracking and managing vehicles in a parking facility.
 
-![Car Park System](https://via.placeholder.com/800x400?text=Car+Park+System)
-
 ## Features
 
 - **Parking Status Display**: Visual grid showing available and occupied parking spots

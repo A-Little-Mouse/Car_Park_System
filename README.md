@@ -74,11 +74,6 @@ The system uses two text files for data storage:
    ```
    Car_Park_System.exe
    ```
-
-## License
-
-[Your License Information]
-
 ## Author
 
 A Little Mouse

@@ -74,6 +74,5 @@ The system uses two text files for data storage:
    ```
    Car_Park_System.exe
    ```
-## Author
-
-A Little Mouse
+---
+Made by BALM.

@@ -66,7 +66,7 @@ The system uses two text files for data storage:
 ## Building from Source
 
 1. Clone the repository
-2. Compile using your preferred C compiler:
+2. Compile
    ```
    gcc Car_Park_System.c -o Car_Park_System.exe
    ```
